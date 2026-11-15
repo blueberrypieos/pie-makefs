@@ -1,0 +1,9 @@
+pie-makefs (1) resolute; urgency=medium
+
+  * pie-makefs 1
+  * src/freebsd-src is FreeBSD's release/15.1.0-p6 tag, commit
+    95719d8a895bf8170851e9844d9b4092b1d2b6fe.
+  * Only makefs's zfs writer is built, for Linux with libbsd, as
+    /usr/bin/pie-makefs. -t zfs is the default.
+
+ -- Maxwell <maxwell@blueberrypieos.com>  Sun, 15 Nov 2026 02:20:00 +0000

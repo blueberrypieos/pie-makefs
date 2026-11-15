@@ -1,0 +1,38 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 The Blueberry Pie OS Authors
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+B := debian/build
+build: build-arch build-indep
+binary: binary-arch binary-indep
+build-indep:
+binary-indep:
+
+build-arch: $(B)/stamp
+$(B)/stamp:
+	dh build-arch
+	$(MAKE) -f debian/rules clean-dh
+	touch $@
+binary-arch: build-arch
+	dh binary-arch
+	$(MAKE) -f debian/rules clean-dh
+
+override_dh_update_autotools_config:
+
+override_dh_installchangelogs:
+
+override_dh_auto_build:
+	dh_auto_build -- O=$(B)
+
+override_dh_auto_install:
+	dh_auto_install -- O=$(B)
+
+clean-dh:
+	rm -rf debian/.debhelper
+	rm -f debian/debhelper-build-stamp debian/*.debhelper.log debian/*.debhelper
+
+clean: clean-dh
+	rm -rf $(B) debian/pie-makefs debian/files debian/*.substvars
+
+.PHONY: build build-arch build-indep binary binary-arch binary-indep clean clean-dh

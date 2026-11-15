@@ -1,0 +1,28 @@
+Description: ashift is at most 14
+ Each 16 KiB block of the dnode array is written right after the one
+ before it. With sectors larger than 16 KiB, those blocks are not aligned
+ to a sector, and ZFS cannot read the pool. The ashift option now stops at
+ 14, the dnode block's size.
+Author: The Blueberry Pie OS Authors
+Forwarded: no
+Last-Update: 2026-11-15
+
+--- a/src/freebsd-src/usr.sbin/makefs/zfs.c
++++ b/src/freebsd-src/usr.sbin/makefs/zfs.c
+@@ -27,6 +27,7 @@
+  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+  * SUCH DAMAGE.
+  */
++/* Modified 2026-11-15: ashift is at most 14, the dnode block's size. */
+ 
+ #include <sys/param.h>
+ #include <sys/errno.h>
+@@ -93,7 +94,7 @@
+ 		{ '\0', "rootpath", &zfs->rootpath, OPT_STRPTR,
+ 		  0, 0, "Prefix for all dataset mount points" },
+ 		{ '\0', "ashift", &zfs->ashift, OPT_INT32,
+-		  MINBLOCKSHIFT, MAXBLOCKSHIFT, "ZFS pool ashift" },
++		  MINBLOCKSHIFT, DNODE_BLOCK_SHIFT, "ZFS pool ashift" },
+ 		{ '\0', "verify-txgs", &zfs->verify_txgs, OPT_BOOL,
+ 		  0, 0, "Make OpenZFS verify data upon import" },
+ 		{ '\0', "nowarn", &zfs->nowarn, OPT_BOOL,

@@ -1,0 +1,19 @@
+Source: pie-makefs
+Section: admin
+Priority: optional
+Maintainer: Maxwell <maxwell@blueberrypieos.com>
+Build-Depends: debhelper-compat (= 13), libbsd-dev
+Standards-Version: 4.7.3
+Homepage: https://github.com/blueberrypieos/pie-makefs
+Vcs-Git: https://github.com/blueberrypieos/pie-makefs.git
+Vcs-Browser: https://github.com/blueberrypieos/pie-makefs
+Rules-Requires-Root: no
+
+Package: pie-makefs
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: create a ZFS pool image from a directory tree
+ FreeBSD's makefs with only its zfs writer, installed as
+ /usr/bin/pie-makefs. It writes a pool and its datasets from a directory
+ tree without the ZFS kernel module. With a fixed -T time, the same tree
+ gives the same image.

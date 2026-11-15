@@ -1,0 +1,32 @@
+Description: Dataset roots count "." in their link count and size
+ A dataset's root directory got a link count and a size one too low,
+ because the count started after its "." node.
+Origin: upstream, https://github.com/freebsd/freebsd-src/commit/81b5b2265d77
+Forwarded: not-needed
+Last-Update: 2026-11-15
+
+--- a/src/freebsd-src/usr.sbin/makefs/zfs/fs.c
++++ b/src/freebsd-src/usr.sbin/makefs/zfs/fs.c
+@@ -27,6 +27,7 @@
+  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+  * SUCH DAMAGE.
+  */
++/* Modified 2026-11-15: dataset roots count "." in their link count and size, from FreeBSD's 81b5b2265d77. */
+ 
+ #include <sys/param.h>
+ #include <sys/stat.h>
+@@ -389,10 +390,11 @@
+ 			 * The size of a ZPL directory is the number of entries
+ 			 * (including "." and ".."), and the link count is the
+ 			 * number of entries which are directories
+-			 * (including "." and "..").
++			 * (including "." and "..").  The root of a dataset is
++			 * the "." node itself, followed by the other entries.
+ 			 */
+-			for (fsnode *c =
+-			    fsnode_isroot(cur) ? cur->next : cur->child;
++			for (const fsnode *c =
++			    fsnode_isroot(cur) ? cur : cur->child;
+ 			    c != NULL; c = c->next) {
+ 				switch (c->type) {
+ 				case S_IFDIR:

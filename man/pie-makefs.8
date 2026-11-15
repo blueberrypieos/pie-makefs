@@ -1,0 +1,161 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\" Copyright (c) 2026 The Blueberry Pie OS Authors
+.Dd November 15, 2026
+.Dt PIE-MAKEFS 8
+.Os
+.Sh NAME
+.Nm pie-makefs
+.Nd create a ZFS pool image from a directory tree
+.Sh SYNOPSIS
+.Nm
+.Op Fl D
+.Op Fl x
+.Op Fl t Cm zfs
+.Op Fl F Ar mtree-specfile
+.Op Fl M Ar minimum-size
+.Op Fl m Ar maximum-size
+.Op Fl o Ar zfs-options
+.Op Fl s Ar image-size
+.Op Fl T Ar timestamp
+.Ar image-file
+.Ar directory | manifest
+.Op Ar extra-directory ...
+.Sh DESCRIPTION
+.Nm
+is FreeBSD's
+.Xr makefs 8
+with only its zfs writer, for Linux.
+It writes
+.Ar image-file ,
+a pool on one disk vdev, from the files in
+.Ar directory
+and any
+.Ar extra-directory ,
+or from the files an mtree
+.Ar manifest
+names.
+It needs no ZFS kernel module.
+Regular files, directories and symbolic links are written.
+Device nodes and FIFOs are left out with a warning, and sockets are left
+out.
+Owners, modes and times come from the tree, so run it under
+.Xr fakeroot 1
+to give files other owners.
+The same tree, options and
+.Fl T
+time give the same image when
+.Ev LC_ALL
+is
+.Dv C .
+.Pp
+The options are:
+.Bl -tag -width indent
+.It Fl D
+Warn about duplicate paths in an mtree manifest instead of failing.
+Given twice, say nothing about them.
+.It Fl F Ar mtree-specfile
+Take owners, modes and other attributes from an mtree specification.
+Owners and groups must be numeric, uid= and gid=, because names need
+.Fl N .
+File flags other than
+.Cm none
+are refused.
+A time= in the specification sets the access and modification times,
+over
+.Fl T ,
+and the change time stays the
+.Fl T
+time.
+.It Fl M Ar minimum-size , Fl m Ar maximum-size
+Bound the image's size.
+.Fl M
+alone is not enough: the image needs
+.Fl m
+or
+.Fl s .
+.It Fl o Ar zfs-options
+A comma-separated list of the options below.
+.It Fl s Ar image-size
+The image's size, with an optional k, m, g or t suffix.
+It sets both bounds.
+.Fl s
+or
+.Fl m
+is required.
+.It Fl T Ar timestamp
+Give every file this time, in seconds since the epoch, or the
+modification and change times of the file it names.
+A file with the number as its name takes the number's place.
+For the same image from the same tree, give a number, such as
+.Ev SOURCE_DATE_EPOCH .
+.It Fl t Cm zfs
+The file system type.
+zfs is the default and the only one built.
+It must come before any
+.Fl o ,
+because it discards the options given before it.
+.It Fl x
+Leave out files that the specification does not name.
+.El
+.Pp
+The zfs options are:
+.Bl -tag -width indent
+.It Cm poolname Ns = Ns Ar name
+The pool's name.
+It is required.
+.It Cm rootpath Ns = Ns Ar path
+A prefix for the datasets' mount points,
+.Pa / Ns Ar poolname
+by default.
+A bootable pool uses
+.Pa / .
+One dataset's mount point must be the prefix itself.
+.It Cm bootfs Ns = Ns Ar dataset
+The pool's bootfs property.
+.It Cm fs Ns = Ns Ar dataset Ns Op ; Ns Ar property Ns = Ns Ar value ...
+Make a dataset, with some of its properties: atime, canmount,
+compression, exec, mountpoint and setuid.
+.It Cm ashift Ns = Ns Ar n
+The base-2 logarithm of the smallest block size, from 9 to 14, and 12
+by default.
+.It Cm mssize Ns = Ns Ar size
+The size of each metaslab.
+.It Cm poolguid Ns = Ns Ar guid
+The pool's GUID.
+Without it, every pool gets the same GUID, and two such pools can't be
+imported on one system.
+.It Cm verify-txgs
+Make ZFS verify the pool's metadata when it imports it.
+.El
+.Sh EXIT STATUS
+.Ex -std
+After a failure,
+.Ar image-file
+may be incomplete and should be removed.
+.Sh EXAMPLES
+Write a pool named pie with one dataset as its root:
+.Bd -literal -offset indent
+LC_ALL=C pie-makefs -t zfs -T 1700000000 -s 1g \e
+    -o poolname=pie -o rootpath=/ -o bootfs=pie/sys/default \e
+    -o 'fs=pie;canmount=off;mountpoint=none' \e
+    -o 'fs=pie/sys;canmount=off;mountpoint=none' \e
+    -o 'fs=pie/sys/default;mountpoint=/' pool.img root
+.Ed
+.Sh SEE ALSO
+.Xr fakeroot 1 ,
+.Xr makefs 8 ,
+.Xr zdb 8
+.Sh CAVEATS
+The cd9660, ffs and msdos writers are not built.
+.Fl N
+is not supported.
+.Pp
+A hard link must be in the same dataset as its file, and each dataset
+needs its own mount point.
+A symbolic link's target may have at most 144 bytes.
+A tree about a thousand levels deep overflows the stack.
+.Pp
+The mountpoint property must be a path or none, not legacy, and readonly
+can't be set.
+compression is recorded, but the data is written uncompressed, and sparse
+files are written in full.

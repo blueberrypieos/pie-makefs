@@ -1,0 +1,43 @@
+Description: The dnode array keeps only the space it writes
+ The space allocator rounds the dnode array's length up to a power of two,
+ or to 128 KiB above that, but only the 16 KiB blocks in use are written.
+ The rest of the range stayed marked as allocated with no block pointer,
+ and zdb reported it as leaked. It goes back to the space map before the
+ space maps are written.
+Author: The Blueberry Pie OS Authors
+Forwarded: no
+Last-Update: 2026-11-15
+
+--- a/src/freebsd-src/usr.sbin/makefs/zfs/objset.c
++++ b/src/freebsd-src/usr.sbin/makefs/zfs/objset.c
+@@ -27,6 +27,7 @@
+  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+  * SUCH DAMAGE.
+  */
++/* Modified 2026-11-15: the dnode array's allocation keeps only the blocks it writes. */
+ 
+ #include <sys/param.h>
+ #include <assert.h>
+@@ -159,7 +160,7 @@
+ objset_write(zfs_opt_t *zfs, zfs_objset_t *os)
+ {
+ 	struct dnode_cursor *c;
+-	off_t dnodeloc, dnodesz;
++	off_t dnodeloc, dnodesz, used;
+ 	uint64_t dnodecount;
+ 
+ 	/*
+@@ -177,7 +178,13 @@
+ 	c = dnode_cursor_init(zfs, os, &os->phys->os_meta_dnode, dnodesz,
+ 	    DNODE_BLOCK_SIZE);
+ 	dnodesz = roundup2(dnodesz, DNODE_BLOCK_SIZE);
++	used = roundup2(dnodesz, (off_t)1 << zfs->ashift);
+ 	dnodeloc = objset_space_alloc(zfs, os, &dnodesz);
++	if (dnodesz > used) {
++		bit_nclear(zfs->spacemap, (dnodeloc + used) >> zfs->ashift,
++		    ((dnodeloc + dnodesz) >> zfs->ashift) - 1);
++		os->space -= dnodesz - used;
++	}
+ 
+ 	if (os == zfs->mos) {
+ 		vdev_spacemap_write(zfs);

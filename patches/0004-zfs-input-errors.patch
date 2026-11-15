@@ -1,0 +1,86 @@
+Description: Errors for four inputs the zfs writer can't write
+ A hard link whose names are in two datasets was written as a directory
+ entry that held the other dataset's object number, which corrupted the
+ pool. A symbolic link target too long for the bonus buffer, and two
+ datasets with one mount point, failed assertions. A tree with no dataset
+ mounted at the root path dereferenced a null pointer. All four are now
+ errors that name the cause.
+Author: The Blueberry Pie OS Authors
+Forwarded: no
+Last-Update: 2026-11-15
+
+--- a/src/freebsd-src/usr.sbin/makefs/zfs/fs.c
++++ b/src/freebsd-src/usr.sbin/makefs/zfs/fs.c
+@@ -28,6 +28,7 @@
+  * SUCH DAMAGE.
+  */
+ /* Modified 2026-11-15: dataset roots count "." in their link count and size, from FreeBSD's 81b5b2265d77. */
++/* Modified 2026-11-15: a hard link into another dataset, a symbolic link target too long for the bonus buffer, two datasets with one mount point and a tree with no dataset at the root path are errors. */
+ 
+ #include <sys/param.h>
+ #include <sys/stat.h>
+@@ -325,7 +326,10 @@
+ 		size_t n;
+ 
+ 		n = strlcpy(buf, cur->symlink, bufsz);
+-		assert(n < bufsz);
++		if (n >= bufsz)
++			errx(1, "symbolic link `%s%s%s': its target is too long",
++			    cur->path != NULL ? cur->path : "",
++			    cur->path != NULL ? "/" : "", cur->name);
+ 	} else {
+ 		ssize_t n;
+ 
+@@ -526,7 +530,11 @@
+ 	if (cur->type == S_IFLNK) {
+ 		assert(layout == SA_LAYOUT_INDEX_SYMLINK);
+ 		/* Need to use a spill block pointer if the target is long. */
+-		assert(bonussz + objsize <= DN_OLD_MAX_BONUSLEN);
++		if (bonussz + objsize > DN_OLD_MAX_BONUSLEN)
++			errx(1, "symbolic link `%s%s%s': its target is longer than %zu bytes",
++			    cur->path != NULL ? cur->path : "",
++			    cur->path != NULL ? "/" : "", cur->name,
++			    (size_t)(DN_OLD_MAX_BONUSLEN - bonussz));
+ 		fs_populate_varszattr(fs, attrbuf, target, objsize,
+ 		    sahdr->sa_lengths[0], ZPL_SYMLINK, &bonussz);
+ 		sahdr->sa_lengths[1] = (uint16_t)objsize;
+@@ -561,6 +569,10 @@
+ 		 * XXX-MJ need to check whether it crosses datasets, add a test
+ 		 * case for that
+ 		 */
++		if (cur->inode->param != arg->fs->os)
++			errx(1, "hard link `%s%s%s' is in another dataset than its file",
++			    cur->path != NULL ? cur->path : "",
++			    cur->path != NULL ? "/" : "", cur->name);
+ 		fs_populate_dirent(arg, cur, cur->inode->ino);
+ 		return;
+ 	}
+@@ -569,6 +581,8 @@
+ 	    DMU_OT_PLAIN_FILE_CONTENTS, DMU_OT_SA, 0, &dnid);
+ 	cur->inode->ino = dnid;
+ 	cur->inode->flags |= FI_ALLOCATED;
++	assert(cur->inode->param == NULL);
++	cur->inode->param = arg->fs->os;
+ 
+ 	fd = fs_open(cur, arg, O_RDONLY);
+ 
+@@ -920,6 +934,10 @@
+ 		 * technically allowed, but it's not clear what makefs should do
+ 		 * in that case.
+ 		 */
++		if (cur->inode->param != NULL)
++			errx(1, "datasets `%s' and `%s' have the same mount point",
++			    dsl_dir_fullname(cur->inode->param),
++			    dsl_dir_fullname(dsldir));
+ 		assert((cur->inode->flags & FI_ROOT) == 0);
+ 		if (cur != root)
+ 			cur->inode->flags |= FI_ROOT;
+@@ -1111,6 +1129,8 @@
+ 	 * populates them.  Once this function has returned, all datasets will
+ 	 * have been fully populated.
+ 	 */
++	if (root->inode->param == NULL)
++		errx(1, "no dataset is mounted at `%s'", zfs->rootpath);
+ 	fs_build_one(zfs, root->inode->param, root, dirfd);
+ 
+ 	/*
