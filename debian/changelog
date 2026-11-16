@@ -1,3 +1,10 @@
+pie-makefs (2) resolute; urgency=medium
+
+  * The pool's disk is a partition, not a whole disk. zpool online -e then
+    grows the pool into a larger partition.
+
+ -- Maxwell <maxwell@blueberrypieos.com>  Mon, 16 Nov 2026 22:00:00 +0000
+
 pie-makefs (1) resolute; urgency=medium
 
   * pie-makefs 1

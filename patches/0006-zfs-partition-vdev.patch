@@ -1,0 +1,28 @@
+Description: the pool's disk is a partition
+ The image is written into a partition, so its disk is not a whole disk.
+ With whole_disk set, zpool online -e first tries to relabel the disk.
+ That fails on a pool in a partition, and the pool never grows into a
+ larger partition.
+Author: The Blueberry Pie OS Authors
+Forwarded: no
+Last-Update: 2026-11-16
+
+--- a/src/freebsd-src/usr.sbin/makefs/zfs.c
++++ b/src/freebsd-src/usr.sbin/makefs/zfs.c
+@@ -28,6 +28,7 @@
+  * SUCH DAMAGE.
+  */
+ /* Modified 2026-11-15: ashift is at most 14, the dnode block's size. */
++/* Modified 2026-11-16: the pool's disk is a partition, not a whole disk. */
+ 
+ #include <sys/param.h>
+ #include <sys/errno.h>
+@@ -332,7 +333,7 @@
+ 	nvlist_add_uint64(diskvdevnv, ZPOOL_CONFIG_GUID, zfs->vdevguid);
+ 	nvlist_add_uint64(diskvdevnv, ZPOOL_CONFIG_ID, 0);
+ 	nvlist_add_string(diskvdevnv, ZPOOL_CONFIG_PATH, "/dev/null");
+-	nvlist_add_uint64(diskvdevnv, ZPOOL_CONFIG_WHOLE_DISK, 1);
++	nvlist_add_uint64(diskvdevnv, ZPOOL_CONFIG_WHOLE_DISK, 0);
+ 	nvlist_add_uint64(diskvdevnv, ZPOOL_CONFIG_CREATE_TXG, TXG);
+ 	nvlist_add_uint64(diskvdevnv, ZPOOL_CONFIG_METASLAB_ARRAY,
+ 	    zfs->objarrid);
